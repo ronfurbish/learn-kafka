@@ -1,0 +1,77 @@
+version: '3.7'
+services:
+  akhq:
+    image: tchiotludo/akhq:latest
+    container_name: akhq
+    restart: unless-stopped
+    ports:
+     - 28080:8080
+    volumes:
+     - ./akhq/application.yml:/app/application.yml
+    depends_on: [kafka]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.0.1
+    container_name: kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_BROKER_ID: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9991
+    ports:
+    - 9092:9092
+    volumes:
+     - kafka-data:/var/lib/kafka/data
+    depends_on: [zookeeper]
+
+  kafka-connect:
+    image: debezium/connect:latest
+    hostname: kafka-connect
+    container_name: kafka-connect
+    restart: unless-stopped
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: connect_configs
+      OFFSET_STORAGE_TOPIC: connect_offsets
+      KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
+      VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    ports:
+      - 8083:8083
+    volumes:
+      - kafka-connect-data:/data
+    depends_on: [kafka]
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.0.1
+    restart: unless-stopped
+    ports:
+      - 8081:8081
+    environment:
+     SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: 'zookeeper:2181'
+     SCHEMA_REGISTRY_HOST_NAME: 'schema-registry'
+     SCHEMA_REGISTRY_LISTENERS: 'http://0.0.0.0:8081'
+     SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'PLAINTEXT://kafka:9092'
+    depends_on: [zookeeper, kafka]
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.0.1
+    container_name: zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - 2181:2181
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+
+volumes: 
+  kafka-data:
+  kafka-connect-data:
+  zookeeper-data:
+  zookeeper-log:
