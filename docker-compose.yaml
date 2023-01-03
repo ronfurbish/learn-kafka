@@ -90,7 +90,13 @@ services:
       - zookeeper-log:/var/lib/zookeeper/log
 
 volumes: 
-  kafka-data:
+  kafka1-data:
+  kafka2-data:
+  kafka3-data:
   kafka-connect-data:
-  zookeeper-data:
-  zookeeper-log:
+  zookeeper1-data:
+  zookeeper1-log:
+  zookeeper2-data:
+  zookeeper2-log:
+  zookeeper3-data:
+  zookeeper3-log:
