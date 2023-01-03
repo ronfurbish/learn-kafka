@@ -10,8 +10,14 @@ services:
      - ./akhq/application.yml:/app/application.yml
     depends_on: [kafka]
 
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - 3000:3000
   kafka:
-    image: confluentinc/cp-kafka:7.0.1
+    image: confluentinc/cp-kafka:latest
     container_name: kafka
     restart: unless-stopped
     environment:
@@ -27,7 +33,7 @@ services:
     depends_on: [zookeeper]
 
   kafka-connect:
-    image: debezium/connect:latest
+    image: confluentinc/cp-kafka-connect:latest
     hostname: kafka-connect
     container_name: kafka-connect
     restart: unless-stopped
@@ -36,16 +42,29 @@ services:
       GROUP_ID: 1
       CONFIG_STORAGE_TOPIC: connect_configs
       OFFSET_STORAGE_TOPIC: connect_offsets
-      KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
-      VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
-      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
     ports:
       - 8083:8083
     volumes:
       - kafka-connect-data:/data
     depends_on: [kafka]
 
+  kafka-exporter:
+    image: vectorized/kminion:v2.2.1
+    restart: unless-stopped
+    container_name: kafka-exporter
+    environment: 
+      KAFKA_BROKERS: 'kafka:9092'
+    ports:
+    - 9308:8080
+  
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
   schema-registry:
     image: confluentinc/cp-schema-registry:7.0.1
     restart: unless-stopped
