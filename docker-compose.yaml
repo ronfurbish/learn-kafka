@@ -8,28 +8,66 @@ services:
      - 28080:8080
     volumes:
      - ./akhq/application.yml:/app/application.yml
-    depends_on: [kafka]
 
   grafana:
-    image: grafana/grafana
+    image: grafana/grafana:latest
     container_name: grafana
     restart: unless-stopped
     ports:
       - 3000:3000
-  kafka:
+  
+  kafka-1:
     image: confluentinc/cp-kafka:latest
-    container_name: kafka
+    container_name: kafka-1
     restart: unless-stopped
     environment:
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092
       KAFKA_BROKER_ID: 1
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_JMX_PORT: 9991
+      KAFKA_JMX_PORT: 9101
+     # KAFKA_LISTENERS: INSIDE://kafka-1:9092,OUTSIDE://:19092
+     # KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
     ports:
-    - 9092:9092
+    - 19092:19092
     volumes:
-     - kafka-data:/var/lib/kafka/data
+     - kafka1-data:/var/lib/kafka/data
+    depends_on: [zookeeper]
+  
+  kafka-2:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka-2
+    restart: unless-stopped
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:29092
+      KAFKA_BROKER_ID: 2
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9101
+     # KAFKA_LISTENERS: INSIDE://kafka-2:9092,OUTSIDE://:29092
+     # KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+    ports:
+    - 29092:29092
+    volumes:
+     - kafka2-data:/var/lib/kafka/data
+    depends_on: [zookeeper]
+
+  kafka-3:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka-3
+    restart: unless-stopped
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:39092
+      KAFKA_BROKER_ID: 3
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9101
+     # KAFKA_LISTENERS: INSIDE://kafka-2:9092,OUTSIDE://:39092
+      #KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+    ports:
+    - 39092:39092
+    volumes:
+     - kafka3-data:/var/lib/kafka/data
     depends_on: [zookeeper]
 
   kafka-connect:
@@ -46,41 +84,43 @@ services:
       - 8083:8083
     volumes:
       - kafka-connect-data:/data
-    depends_on: [kafka]
+    depends_on: [kafka-1, kafka-2, kafka-3]
 
   kafka-exporter:
     image: vectorized/kminion:v2.2.1
     restart: unless-stopped
     container_name: kafka-exporter
     environment: 
-      KAFKA_BROKERS: 'kafka:9092'
+      KAFKA_BROKERS: 'kafka-1:19092,kafka-2:29092,kafka-3:39092'
     ports:
     - 9308:8080
   
   prometheus:
-    image: prom/prometheus
+    image: prom/prometheus:latest
     container_name: prometheus
     restart: always
     ports:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      
   schema-registry:
-    image: confluentinc/cp-schema-registry:7.0.1
+    image: confluentinc/cp-schema-registry:latest
     restart: unless-stopped
+    container_name: schema-registry
     ports:
       - 8081:8081
     environment:
      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: 'zookeeper:2181'
      SCHEMA_REGISTRY_HOST_NAME: 'schema-registry'
      SCHEMA_REGISTRY_LISTENERS: 'http://0.0.0.0:8081'
-     SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'PLAINTEXT://kafka:9092'
-    depends_on: [zookeeper, kafka]
+     SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'PLAINTEXT://kafka-1:9092,PLAINTEXT://kafka-2:9092, PLAINTEXT://kafka-3:9092'
+    depends_on: [zookeeper, kafka-1, kafka-2, kafka-3]
 
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.0.1
-    container_name: zookeeper
+    image: confluentinc/cp-zookeeper:latest
     restart: unless-stopped
+    container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
     ports:
@@ -89,8 +129,12 @@ services:
       - zookeeper-data:/var/lib/zookeeper/data
       - zookeeper-log:/var/lib/zookeeper/log
 
+  
+
 volumes: 
-  kafka-data:
+  kafka1-data:
+  kafka2-data:
+  kafka3-data:
   kafka-connect-data:
   zookeeper-data:
   zookeeper-log:
